@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:layout_gravity="center"
+    tools:context=".MainActivity">
+
+    <TextView
+        android:id="@+id/surnameTextView"
+        android:layout_width="145dp"
+        android:layout_height="0dp"
+        android:layout_marginTop="28dp"
+        android:text="Фамилия"
+        android:textSize="20sp"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent" />
+
+    <TextView
+        android:id="@+id/nameTextView"
+        android:layout_width="145dp"
+        android:layout_height="27dp"
+        android:layout_marginTop="36dp"
+        android:text="Имя"
+        android:textSize="20sp"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/surnameTextView" />
+
+    <TextView
+        android:id="@+id/patronymicTextView"
+        android:layout_width="145dp"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="36dp"
+        android:text="Отчество"
+        android:textSize="20sp"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/nameTextView" />
+
+    <Button
+        android:id="@+id/playersButton"
+        android:layout_width="323dp"
+        android:layout_height="75dp"
+        android:onClick="openClientPlayers"
+        android:text="Игроки"
+        app:layout_constraintBottom_toTopOf="@+id/contractButton"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent" />
+
+    <Button
+        android:id="@+id/userSettingsButton"
+        android:layout_width="323dp"
+        android:layout_height="75dp"
+        android:layout_marginBottom="48dp"
+        android:onClick="openUser"
+        android:text="Настройки пользователя"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent" />
+
+    <Button
+        android:id="@+id/contractButton"
+        android:layout_width="323dp"
+        android:layout_height="75dp"
+        android:onClick="openContract"
+        android:text="Договор"
+        app:layout_constraintBottom_toTopOf="@+id/userSettingsButton"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent" />
+
+</androidx.constraintlayout.widget.ConstraintLayout>

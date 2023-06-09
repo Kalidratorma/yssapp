@@ -7,13 +7,25 @@ import android.os.AsyncTask
 import android.os.Bundle
 import android.util.Log
 import android.widget.Button
+import android.widget.EditText
 import android.widget.ImageView
 import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
+import androidx.recyclerview.widget.LinearLayoutManager
+import androidx.recyclerview.widget.RecyclerView
+import com.kalidratorma.yssapp.adapter.PlayerAdapter
+import com.kalidratorma.yssapp.model.Coach
+import com.kalidratorma.yssapp.model.Contract
+import com.kalidratorma.yssapp.model.Parent
 import com.kalidratorma.yssapp.model.Player
+import com.kalidratorma.yssapp.model.security.auth.AuthenticationRequest
+import com.kalidratorma.yssapp.model.security.auth.AuthenticationResponse
+import com.kalidratorma.yssapp.model.security.user.Role
+import com.kalidratorma.yssapp.model.security.user.User
 import com.kalidratorma.yssapp.service.ApiService
+import com.kalidratorma.yssapp.service.AuthService
 import com.kalidratorma.yssapp.service.RetrofitHelper
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
@@ -21,28 +33,150 @@ import java.text.SimpleDateFormat
 @Suppress("DEPRECATION")
 class MainActivity : AppCompatActivity() {
     private lateinit var apiService: ApiService
-    private var progressDialog: ProgressDialog ?= null
+    private lateinit var authService: AuthService
+    private var progressDialog: ProgressDialog? = null
 
-    private var player:Player ?= null
+    private lateinit var player: Player
+    private lateinit var parent: Parent
+    private lateinit var coach: Coach
+    private lateinit var user: User
+
+    private lateinit var playerAdapter: PlayerAdapter;
+    private lateinit var recyclerView: RecyclerView;
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContentView(R.layout.activity_main)
+        authService = RetrofitHelper.getInstance().create(AuthService::class.java)
+        apiService = RetrofitHelper.getInstance().create(ApiService::class.java)
 
-        findViewById<Button>(R.id.btnGet).setOnClickListener {
-            getPlayerById()
+        setContentView(R.layout.login)
+
+        findViewById<Button>(R.id.loginButton).setOnClickListener {
+            var username: String = findViewById<EditText>(R.id.userNameEditText).text.toString();
+            var password: String = findViewById<EditText>(R.id.passwordEditText).text.toString();
+            var request = AuthenticationRequest(username, password)
+            login(request);
+
         }
     }
 
-    private fun getPlayerById(): Player? {
-        apiService = RetrofitHelper.getInstance().create(ApiService::class.java)
+    private fun login(request: AuthenticationRequest) {
 
         lifecycleScope.launch {
-            showLoading("Загрузка днных с сервера ...")
+            var localUser: User? = null
+            showLoading("Аутентификация ...")
+            val loginResult = authService.enter(request)
+            if (loginResult.isSuccessful) {
+                Log.e("login", "login success: ${loginResult.body()}")
+                var loginResponse: AuthenticationResponse? = loginResult.body();
+                // TODO Add
+                //  String authToken = "Bearer " + loginResponse.token;
+                //  Request request = original.newBuilder()
+                //                    .header("Authorization", authToken)
+                //                    .method(original.method(), original.body()).build();
+                var userResult = apiService.getUserByName(request.username)
+                if (userResult.isSuccessful) {
+                    Log.e("getUser", "getUser success: ${userResult.body()}")
+                    if (userResult.body() != null) {
+                        user = userResult.body()!!
+                        when (user.role) {
+                            Role.CLIENT -> {
+                                var parentResult = apiService.getParentByUserId(user.id)
+                                if (userResult.isSuccessful) {
+                                    Log.e("getUser", "getUser success: ${parentResult.body()}")
+                                    parent = parentResult.body()!!
+                                    openClientContext(parent)
+                                } else {
+                                    Log.e("getUser", "getUser failed: ${parentResult.message()}")
+                                }
+                            }
+                            Role.COACH -> openCoachContext(user)
+                            Role.ADMIN -> openAdminContext(user)
+                            else -> {Log.e("login", "Что то пошло не так!")}
+                        }
+                    } else {
+                        Log.e("login", "Что то пошло не так!")
+                    }
+                } else {
+                    Log.e("getUser", "getUser failed: ${userResult.message()}")
+                }
+            } else {
+                Log.e("login", "login failed: ${loginResult.message()}")
+            }
+            progressDialog?.dismiss()
+        }
+    }
+
+
+    private fun openClientContext(parent: Parent) {
+        setContentView(R.layout.client)
+
+        findViewById<Button>(R.id.playersButton).setOnClickListener {
+            openPlayers(parent)
+        }
+
+        findViewById<Button>(R.id.contractButton).setOnClickListener {
+            openContract(parent.contracts)
+        }
+
+        findViewById<Button>(R.id.userSettingsButton).setOnClickListener {
+            openUserSettings(parent.user)
+        }
+
+        findViewById<TextView>(R.id.surnameTextView).text = parent.surname
+        findViewById<TextView>(R.id.nameTextView).text = parent.name
+        findViewById<TextView>(R.id.patronymicTextView).text = parent.patronymic
+
+    }
+
+    private fun openContract(contracts: List<Contract>?) {
+        TODO("Not yet implemented")
+    }
+
+    private fun openUserSettings(user: User?) {
+        TODO("Not yet implemented")
+    }
+
+    private fun openPlayers(parent: Parent) {
+        lifecycleScope.launch {
+            showLoading("Загрузка данных с сервера ...")
+            val result = apiService.getPlayersByParentId(parent.id)
+            if (result.isSuccessful) {
+                Log.e("openPlayers", "openPlayers success: ${result.body()}")
+                var playerList: List<Player> = result.body()!!;
+                fillRecyclerView(playerList);
+            } else {
+                Log.e("openPlayers", "openPlayers failed: ${result.message()}")
+            }
+            progressDialog?.dismiss()
+        }
+    }
+
+    private fun fillRecyclerView(playerList: List<Player>) {
+        setContentView(R.layout.player_list)
+        recyclerView = findViewById(R.id.playersRecyclerView)
+        playerAdapter = PlayerAdapter(playerList)
+        val layoutManager: RecyclerView.LayoutManager = LinearLayoutManager(this)
+        recyclerView.layoutManager = layoutManager
+        recyclerView.adapter = playerAdapter
+    }
+
+    private fun openCoachContext(user: User) {
+        setContentView(R.layout.coach)
+    }
+
+    private fun openAdminContext(user: User) {
+        setContentView(R.layout.admin)
+    }
+
+    private fun getPlayerById(): Player? {
+
+        lifecycleScope.launch {
+            showLoading("Загрузка данных с сервера ...")
             val result = apiService.getPlayerById(1)
-            if(result.isSuccessful) {
+            if (result.isSuccessful) {
                 Log.e("getPlayerById", "getPlayerById success: ${result.body()}")
-                player = result.body();
+                player = result.body()!!;
                 showMainLayout(player)
             } else {
                 Log.e("getPlayerById", "getPlayerById failed: ${result.message()}")
@@ -55,17 +189,17 @@ class MainActivity : AppCompatActivity() {
     private fun showMainLayout(player: Player?) {
         val simpleDateFormat = SimpleDateFormat("dd.MM.yyyy г.")
 
-        setContentView(R.layout.main)
+        setContentView(R.layout.player)
 
-        findViewById<Button>(R.id.coachTasksButton).setOnClickListener {
+        findViewById<Button>(R.id.playersButton).setOnClickListener {
             openCoachTask()
         }
 
-        findViewById<Button>(R.id.coachGradeButton).setOnClickListener {
+        findViewById<Button>(R.id.contractButton).setOnClickListener {
             openCoachGrade()
         }
 
-        findViewById<Button>(R.id.testsButton).setOnClickListener {
+        findViewById<Button>(R.id.userSettingsButton).setOnClickListener {
             openTests()
         }
 
@@ -75,9 +209,11 @@ class MainActivity : AppCompatActivity() {
 
         findViewById<TextView>(R.id.surnameTextView).text = player?.surname
         findViewById<TextView>(R.id.nameTextView).text = player?.name
-        findViewById<TextView>(R.id.birthDateEditTextDate).text =  simpleDateFormat.format(player?.birthDate)
+        findViewById<TextView>(R.id.birthDateEditTextDate).text =
+            simpleDateFormat.format(player?.birthDate)
         DownloadImageFromInternet(findViewById<ImageView>(R.id.photoImageView)).execute(player?.photo)
     }
+
     private fun openCoachTask() {
         setContentView(R.layout.coach_tasks)
         findViewById<Button>(R.id.button).setOnClickListener {
@@ -102,25 +238,28 @@ class MainActivity : AppCompatActivity() {
     }
 
 
-
-    private inner class DownloadImageFromInternet(var imageView: ImageView) : AsyncTask<String, Void, Bitmap?>() {
+    private inner class DownloadImageFromInternet(var imageView: ImageView) :
+        AsyncTask<String, Void, Bitmap?>() {
         init {
-            Toast.makeText(applicationContext, "Загрузка изображения ...",
-                Toast.LENGTH_SHORT).show()
+            Toast.makeText(
+                applicationContext, "Загрузка изображения ...",
+                Toast.LENGTH_SHORT
+            ).show()
         }
+
         override fun doInBackground(vararg urls: String): Bitmap? {
             val imageURL = urls[0]
             var image: Bitmap? = null
             try {
                 val `in` = java.net.URL(imageURL).openStream()
                 image = BitmapFactory.decodeStream(`in`)
-            }
-            catch (e: Exception) {
+            } catch (e: Exception) {
                 Log.e("Error Message", e.message.toString())
                 e.printStackTrace()
             }
             return image
         }
+
         override fun onPostExecute(result: Bitmap?) {
             imageView.setImageBitmap(result)
         }
