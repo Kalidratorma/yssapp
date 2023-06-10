@@ -3,13 +3,15 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
-    android:layout_height="match_parent">
+    android:layout_height="match_parent"
+    android:background="@color/red">
 
     <Button
         android:id="@+id/button10"
         android:layout_width="149dp"
         android:layout_height="85dp"
         android:text="Назад"
+        android:backgroundTint="@color/gold"
         tools:layout_editor_absoluteX="54dp"
         tools:layout_editor_absoluteY="618dp" />
 
@@ -18,6 +20,7 @@
         android:layout_width="147dp"
         android:layout_height="88dp"
         android:text="Отправить"
+        android:backgroundTint="@color/gold"
         tools:layout_editor_absoluteX="228dp"
         tools:layout_editor_absoluteY="618dp" />
 

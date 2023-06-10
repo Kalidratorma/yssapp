@@ -5,6 +5,7 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:layout_gravity="center"
+    android:background="@color/red"
     tools:context=".MainActivity">
 
     <TextView
@@ -45,6 +46,7 @@
         android:layout_width="323dp"
         android:layout_height="75dp"
         android:onClick="openClientPlayers"
+        android:backgroundTint="@color/gold"
         android:text="Игроки"
         app:layout_constraintBottom_toTopOf="@+id/contractButton"
         app:layout_constraintEnd_toEndOf="parent"
@@ -55,6 +57,7 @@
         android:layout_width="323dp"
         android:layout_height="75dp"
         android:layout_marginBottom="48dp"
+        android:backgroundTint="@color/gold"
         android:onClick="openUser"
         android:text="Настройки пользователя"
         app:layout_constraintBottom_toBottomOf="parent"
@@ -66,6 +69,7 @@
         android:layout_width="323dp"
         android:layout_height="75dp"
         android:onClick="openContract"
+        android:backgroundTint="@color/gold"
         android:text="Договор"
         app:layout_constraintBottom_toTopOf="@+id/userSettingsButton"
         app:layout_constraintEnd_toEndOf="parent"

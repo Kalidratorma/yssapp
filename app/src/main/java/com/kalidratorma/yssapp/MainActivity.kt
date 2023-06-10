@@ -6,6 +6,8 @@ import android.graphics.BitmapFactory
 import android.os.AsyncTask
 import android.os.Bundle
 import android.util.Log
+import android.view.Window
+import android.view.WindowManager
 import android.widget.Button
 import android.widget.EditText
 import android.widget.ImageView
@@ -16,10 +18,12 @@ import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.kalidratorma.yssapp.adapter.PlayerAdapter
+import com.kalidratorma.yssapp.adapter.TaskAdapter
 import com.kalidratorma.yssapp.model.Coach
 import com.kalidratorma.yssapp.model.Contract
 import com.kalidratorma.yssapp.model.Parent
 import com.kalidratorma.yssapp.model.Player
+import com.kalidratorma.yssapp.model.Task
 import com.kalidratorma.yssapp.model.security.auth.AuthenticationRequest
 import com.kalidratorma.yssapp.model.security.auth.AuthenticationResponse
 import com.kalidratorma.yssapp.model.security.user.Role
@@ -36,7 +40,8 @@ class MainActivity : AppCompatActivity() {
     private lateinit var authService: AuthService
     private var progressDialog: ProgressDialog? = null
 
-    private lateinit var player: Player
+    private lateinit var globalPlayer: Player
+    private lateinit var globalTaskList: List<Task>
     private lateinit var parent: Parent
     private lateinit var coach: Coach
     private lateinit var user: User
@@ -44,8 +49,22 @@ class MainActivity : AppCompatActivity() {
     private lateinit var playerAdapter: PlayerAdapter;
     private lateinit var recyclerView: RecyclerView;
 
+    private lateinit var taskAdapter: TaskAdapter;
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        val window: Window = this.window
+
+        // clear FLAG_TRANSLUCENT_STATUS flag:
+        window.clearFlags(WindowManager.LayoutParams.FLAG_TRANSLUCENT_STATUS)
+
+        // add FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS flag to the window
+        window.addFlags(WindowManager.LayoutParams.FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS)
+
+        // finally change the color
+        window.statusBarColor = resources.getColor(R.color.red)
+
         authService = RetrofitHelper.getInstance().create(AuthService::class.java)
         apiService = RetrofitHelper.getInstance().create(ApiService::class.java)
 
@@ -144,7 +163,7 @@ class MainActivity : AppCompatActivity() {
             if (result.isSuccessful) {
                 Log.e("openPlayers", "openPlayers success: ${result.body()}")
                 var playerList: List<Player> = result.body()!!;
-                fillRecyclerView(playerList);
+                fillAndOpenPlayerRecyclerView(playerList);
             } else {
                 Log.e("openPlayers", "openPlayers failed: ${result.message()}")
             }
@@ -152,14 +171,47 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun fillRecyclerView(playerList: List<Player>) {
+    private fun fillAndOpenPlayerRecyclerView(playerList: List<Player>) {
         setContentView(R.layout.player_list)
         recyclerView = findViewById(R.id.playersRecyclerView)
         playerAdapter = PlayerAdapter(playerList)
+        playerAdapter.onItemClick = { player ->
+            showPlayerLayout(player)
+        }
         val layoutManager: RecyclerView.LayoutManager = LinearLayoutManager(this)
         recyclerView.layoutManager = layoutManager
         recyclerView.adapter = playerAdapter
     }
+
+    private fun fillAndOpenTaskRecyclerView(taskList: List<Task>) {
+        globalTaskList = taskList
+        setContentView(R.layout.task_list)
+        recyclerView = findViewById(R.id.tasksRecyclerView)
+        taskAdapter = TaskAdapter(taskList)
+        taskAdapter.onItemClick = { task ->
+            showTaskLayout(task)
+        }
+        val layoutManager: RecyclerView.LayoutManager = LinearLayoutManager(this)
+        recyclerView.layoutManager = layoutManager
+        recyclerView.adapter = taskAdapter
+
+        findViewById<Button>(R.id.backToPlayerButton).setOnClickListener {
+            showPlayerLayout(globalPlayer)
+        }
+    }
+
+    private fun showTaskLayout(task: Task) {
+        setContentView(R.layout.task)
+
+        findViewById<TextView>(R.id.taskNameTextView).text = task.name
+        findViewById<TextView>(R.id.taskDescTextMultiLine).text = task.description
+
+        findViewById<Button>(R.id.backButton).setOnClickListener {
+            fillAndOpenTaskRecyclerView(globalTaskList)
+        }
+
+    }
+
 
     private fun openCoachContext(user: User) {
         setContentView(R.layout.coach)
@@ -169,30 +221,43 @@ class MainActivity : AppCompatActivity() {
         setContentView(R.layout.admin)
     }
 
-    private fun getPlayerById(): Player? {
+    private fun getPlayerById(id: Int): Player? {
 
         lifecycleScope.launch {
             showLoading("Загрузка данных с сервера ...")
-            val result = apiService.getPlayerById(1)
+            val result = apiService.getPlayerById(id)
             if (result.isSuccessful) {
                 Log.e("getPlayerById", "getPlayerById success: ${result.body()}")
-                player = result.body()!!;
-                showMainLayout(player)
+                globalPlayer = result.body()!!;
+                showPlayerLayout(globalPlayer)
             } else {
                 Log.e("getPlayerById", "getPlayerById failed: ${result.message()}")
             }
             progressDialog?.dismiss()
         }
-        return player
+        return globalPlayer
     }
 
-    private fun showMainLayout(player: Player?) {
+    private fun showPlayerLayout(player: Player) {
+        globalPlayer = player
+
         val simpleDateFormat = SimpleDateFormat("dd.MM.yyyy г.")
 
         setContentView(R.layout.player)
 
         findViewById<Button>(R.id.playersButton).setOnClickListener {
-            openCoachTask()
+            lifecycleScope.launch {
+                showLoading("Загрузка данных с сервера ...")
+                val result = apiService.getTasksByPlayerId(globalPlayer.id)
+                if (result.isSuccessful) {
+                    Log.e("openCoachTask", "openCoachTask success: ${result.body()}")
+                    var taskList: List<Task> = result.body()!!;
+                    openCoachTasks(taskList)
+                } else {
+                    Log.e("openCoachTask", "openCoachTask failed: ${result.message()}")
+                }
+                progressDialog?.dismiss()
+            }
         }
 
         findViewById<Button>(R.id.contractButton).setOnClickListener {
@@ -207,18 +272,15 @@ class MainActivity : AppCompatActivity() {
             openStats()
         }
 
-        findViewById<TextView>(R.id.surnameTextView).text = player?.surname
-        findViewById<TextView>(R.id.nameTextView).text = player?.name
+        findViewById<TextView>(R.id.surnameTextView).text = player.surname
+        findViewById<TextView>(R.id.nameTextView).text = player.name
         findViewById<TextView>(R.id.birthDateEditTextDate).text =
-            simpleDateFormat.format(player?.birthDate)
-        DownloadImageFromInternet(findViewById<ImageView>(R.id.photoImageView)).execute(player?.photo)
+            simpleDateFormat.format(player.birthDate)
+        DownloadImageFromInternet(findViewById<ImageView>(R.id.photoImageView)).execute(player.photo)
     }
 
-    private fun openCoachTask() {
-        setContentView(R.layout.coach_tasks)
-        findViewById<Button>(R.id.button).setOnClickListener {
-            showMainLayout(player)
-        }
+    private fun openCoachTasks(tasks: List<Task>) {
+        fillAndOpenTaskRecyclerView(tasks)
     }
 
     private fun openCoachGrade() {

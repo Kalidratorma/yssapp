@@ -35,4 +35,7 @@ interface ApiService {
     @GET("/api/player/byParent/{parentId}")
     suspend fun getPlayersByParentId(@Path("parentId") parentId:Int): Response<List<Player>>
 
+    @GET("/api/task/byPlayer/{playerId}")
+    suspend fun getTasksByPlayerId(@Path("playerId") playerId:Int): Response<List<Task>>
+
 }

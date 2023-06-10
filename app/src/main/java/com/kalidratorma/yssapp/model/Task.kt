@@ -5,8 +5,9 @@ import com.google.gson.annotations.SerializedName
 
 data class Task (
 
-    @SerializedName("id"         ) var id         : Int?                  = null,
-    @SerializedName("name"       ) var name       : String?               = null,
+    @SerializedName("id"         ) var id         : Int,
+    @SerializedName("name"       ) var name       : String,
+    @SerializedName("description") var description: String,
     @SerializedName("minutes"    ) var minutes    : Int?                  = null,
     @SerializedName("qty"        ) var qty        : Int?                  = null,
     @SerializedName("videoLinks" ) var videoLinks : ArrayList<VideoLink> = arrayListOf(),

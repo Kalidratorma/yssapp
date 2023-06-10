@@ -18,7 +18,7 @@
         android:padding="4dp">
 
         <TextView
-            android:id="@+id/playerItemTextView"
+            android:id="@+id/taskItemTextView"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_margin="1dp"
