@@ -55,6 +55,8 @@ class MainActivity : AppCompatActivity() {
     private lateinit var taskAdapter: TaskAdapter
     private lateinit var videoLinkAdapter: VideoLinkAdapter
 
+    private lateinit var globalParent: Parent
+    private lateinit var globalPlayerList: List<Player>
     private lateinit var globalPlayer: Player
     private lateinit var globalTaskList: List<Task>
     private lateinit var globalTask: Task
@@ -138,7 +140,13 @@ class MainActivity : AppCompatActivity() {
 
 
     private fun openClientContext(parent: Parent) {
+        globalParent = parent
+
         setContentView(R.layout.client)
+
+        findViewById<Button>(R.id.exitButton).setOnClickListener {
+            finishAndRemoveTask()
+        }
 
         findViewById<Button>(R.id.playersButton).setOnClickListener {
             openPlayers(parent)
@@ -182,7 +190,15 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun fillAndOpenPlayerRecyclerView(playerList: List<Player>) {
+        globalPlayerList = playerList
         setContentView(R.layout.player_list)
+
+        findViewById<Button>(R.id.backToClientButton).setOnClickListener {
+            openClientContext(globalParent)
+        }
+
+
+
         recyclerView = findViewById(R.id.playersRecyclerView)
         playerAdapter = PlayerAdapter(playerList)
         playerAdapter.onItemClick = { player ->
@@ -244,6 +260,18 @@ class MainActivity : AppCompatActivity() {
             fillAndOpenVideoLinksRecyclerView(task.videoLinks)
         }
 
+        findViewById<Button>(R.id.reportButton).setOnClickListener {
+            openReportTask(task);
+        }
+
+    }
+
+    private fun openReportTask(task: Task) {
+        setContentView(R.layout.report_task)
+
+        findViewById<Button>(R.id.backToTaskButton).setOnClickListener {
+            showTaskLayout(task)
+        }
     }
 
 
@@ -285,13 +313,16 @@ class MainActivity : AppCompatActivity() {
                 val result = apiService.getTasksByPlayerId(globalPlayer.id)
                 if (result.isSuccessful) {
                     Log.e("openCoachTask", "openCoachTask success: ${result.body()}")
-                    var taskList: List<Task> = result.body()!!;
-                    openCoachTasks(taskList)
+                    fillAndOpenTaskRecyclerView(result.body()!!)
                 } else {
                     Log.e("openCoachTask", "openCoachTask failed: ${result.message()}")
                 }
                 progressDialog?.dismiss()
             }
+        }
+
+        findViewById<Button>(R.id.backToPlayerListButton).setOnClickListener {
+            fillAndOpenPlayerRecyclerView(globalPlayerList)
         }
 
         findViewById<Button>(R.id.contractButton).setOnClickListener {
@@ -311,10 +342,6 @@ class MainActivity : AppCompatActivity() {
         findViewById<TextView>(R.id.birthDateEditTextDate).text =
             simpleDateFormat.format(player.birthDate)
         DownloadImageFromInternet(findViewById<ImageView>(R.id.photoImageView)).execute(player.photo)
-    }
-
-    private fun openCoachTasks(tasks: List<Task>) {
-        fillAndOpenTaskRecyclerView(tasks)
     }
 
     private fun openCoachGrade() {
