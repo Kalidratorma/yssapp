@@ -5,6 +5,7 @@ import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.os.AsyncTask
 import android.os.Bundle
+import android.text.method.ScrollingMovementMethod
 import android.util.Log
 import android.view.Window
 import android.view.WindowManager
@@ -19,11 +20,13 @@ import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.kalidratorma.yssapp.adapter.PlayerAdapter
 import com.kalidratorma.yssapp.adapter.TaskAdapter
+import com.kalidratorma.yssapp.adapter.VideoLinkAdapter
 import com.kalidratorma.yssapp.model.Coach
 import com.kalidratorma.yssapp.model.Contract
 import com.kalidratorma.yssapp.model.Parent
 import com.kalidratorma.yssapp.model.Player
 import com.kalidratorma.yssapp.model.Task
+import com.kalidratorma.yssapp.model.VideoLink
 import com.kalidratorma.yssapp.model.security.auth.AuthenticationRequest
 import com.kalidratorma.yssapp.model.security.auth.AuthenticationResponse
 import com.kalidratorma.yssapp.model.security.user.Role
@@ -36,20 +39,26 @@ import java.text.SimpleDateFormat
 
 @Suppress("DEPRECATION")
 class MainActivity : AppCompatActivity() {
+
     private lateinit var apiService: ApiService
     private lateinit var authService: AuthService
+
     private var progressDialog: ProgressDialog? = null
 
-    private lateinit var globalPlayer: Player
-    private lateinit var globalTaskList: List<Task>
     private lateinit var parent: Parent
     private lateinit var coach: Coach
     private lateinit var user: User
 
-    private lateinit var playerAdapter: PlayerAdapter;
-    private lateinit var recyclerView: RecyclerView;
+    private lateinit var recyclerView: RecyclerView
 
-    private lateinit var taskAdapter: TaskAdapter;
+    private lateinit var playerAdapter: PlayerAdapter
+    private lateinit var taskAdapter: TaskAdapter
+    private lateinit var videoLinkAdapter: VideoLinkAdapter
+
+    private lateinit var globalPlayer: Player
+    private lateinit var globalTaskList: List<Task>
+    private lateinit var globalTask: Task
+    private lateinit var globalVideoLinkList: List<VideoLink>
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -64,6 +73,7 @@ class MainActivity : AppCompatActivity() {
 
         // finally change the color
         window.statusBarColor = resources.getColor(R.color.red)
+        window.navigationBarColor = resources.getColor(R.color.red)
 
         authService = RetrofitHelper.getInstance().create(AuthService::class.java)
         apiService = RetrofitHelper.getInstance().create(ApiService::class.java)
@@ -200,14 +210,38 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    private fun fillAndOpenVideoLinksRecyclerView(videoLinkList: List<VideoLink>) {
+        globalVideoLinkList = videoLinkList
+        setContentView(R.layout.video_link_list)
+        recyclerView = findViewById(R.id.videoLinksRecyclerView)
+        videoLinkAdapter = VideoLinkAdapter(videoLinkList)
+//        videoLinkAdapter.onItemClick = { videoLink ->
+//            showVideoLinkLayout(videoLink)
+//        }
+        val layoutManager: RecyclerView.LayoutManager = LinearLayoutManager(this)
+        recyclerView.layoutManager = layoutManager
+        recyclerView.adapter = videoLinkAdapter
+
+        findViewById<Button>(R.id.backToPlayerButton).setOnClickListener {
+            showTaskLayout(globalTask)
+        }
+    }
+
     private fun showTaskLayout(task: Task) {
+        globalTask = task
         setContentView(R.layout.task)
 
         findViewById<TextView>(R.id.taskNameTextView).text = task.name
         findViewById<TextView>(R.id.taskDescTextMultiLine).text = task.description
 
+        findViewById<TextView>(R.id.taskDescTextMultiLine).movementMethod = ScrollingMovementMethod()
+
         findViewById<Button>(R.id.backButton).setOnClickListener {
             fillAndOpenTaskRecyclerView(globalTaskList)
+        }
+
+        findViewById<Button>(R.id.videoButton).setOnClickListener {
+            fillAndOpenVideoLinksRecyclerView(task.videoLinks)
         }
 
     }
