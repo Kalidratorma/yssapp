@@ -17,12 +17,13 @@
         android:orientation="vertical"
         android:padding="4dp">
 
-        <com.pierfrancescosoffritti.androidyoutubeplayer.core.player.views.YouTubePlayerView
+        <VideoView
             android:id="@+id/youTubePlayerView"
             android:layout_width="match_parent"
-            android:layout_height="wrap_content"
+            android:layout_height="614dp"
+            android:layout_gravity="center"
             android:layout_margin="1dp"
-            android:textAlignment="center"/>
+            android:textAlignment="center" />
 
     </LinearLayout>
 

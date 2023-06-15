@@ -1,16 +1,15 @@
 package com.kalidratorma.yssapp.adapter
 
-import android.annotation.SuppressLint
+import android.net.Uri
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.widget.MediaController
+import android.widget.VideoView
 import androidx.recyclerview.widget.RecyclerView
 import com.kalidratorma.yssapp.R
 import com.kalidratorma.yssapp.adapter.VideoLinkAdapter.VideoLinkViewHolder
 import com.kalidratorma.yssapp.model.VideoLink
-import com.pierfrancescosoffritti.androidyoutubeplayer.core.player.YouTubePlayer
-import com.pierfrancescosoffritti.androidyoutubeplayer.core.player.listeners.AbstractYouTubePlayerListener
-import com.pierfrancescosoffritti.androidyoutubeplayer.core.player.views.YouTubePlayerView
 
 
 class VideoLinkAdapter(private val videoLinkList: List<VideoLink>) : RecyclerView.Adapter<VideoLinkViewHolder>() {
@@ -23,6 +22,9 @@ class VideoLinkAdapter(private val videoLinkList: List<VideoLink>) : RecyclerVie
     }
 
     override fun onBindViewHolder(holder: VideoLinkViewHolder, position: Int) {
+        holder.videoLinkItemWebView.setVideoURI(Uri.parse(videoLinkList[position].url!!))
+        holder.videoLinkItemWebView.start()
+        holder.videoLinkItemWebView.pause()
     }
 
     override fun getItemCount(): Int {
@@ -30,24 +32,27 @@ class VideoLinkAdapter(private val videoLinkList: List<VideoLink>) : RecyclerVie
     }
 
     inner class VideoLinkViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
-        var videoLinkItemWebView: YouTubePlayerView
+        var videoLinkItemWebView: VideoView
 
         init {
             videoLinkItemWebView = itemView.findViewById(R.id.youTubePlayerView)
+            videoLinkItemWebView.setMediaController(MediaController(itemView.context))
+
+          //  videoLinkItemWebView.start()
 
 //            itemView.setOnClickListener {
 //                onItemClick?.invoke(videoLinkList[adapterPosition])
 //            }
 
-            videoLinkItemWebView.addYouTubePlayerListener(object : AbstractYouTubePlayerListener() {
-                override fun onReady(youTubePlayer: YouTubePlayer) {
-                    val videoId = videoLinkList[adapterPosition].url!!
-                    youTubePlayer.loadVideo(videoId, 0f)
-                    if(adapterPosition!= 0) {
-                        youTubePlayer.pause()
-                    }
-                }
-            })
+//            videoLinkItemWebView.(object : AbstractYouTubePlayerListener() {
+//                override fun onReady(youTubePlayer: YouTubePlayer) {
+//                    val videoId = videoLinkList[adapterPosition].url!!
+//                    youTubePlayer.loadVideo(videoId, 0f)
+//                    if(adapterPosition!= 0) {
+//                        youTubePlayer.pause()
+//                    }
+//                }
+//            })
         }
     }
 }
