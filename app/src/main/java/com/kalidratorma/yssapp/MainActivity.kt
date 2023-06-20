@@ -1,8 +1,10 @@
 package com.kalidratorma.yssapp
 
 import android.app.ProgressDialog
+import android.content.Intent
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import android.net.Uri
 import android.os.AsyncTask
 import android.os.Bundle
 import android.text.method.ScrollingMovementMethod
@@ -11,6 +13,7 @@ import android.view.Window
 import android.view.WindowManager
 import android.widget.Button
 import android.widget.EditText
+import android.widget.ImageButton
 import android.widget.ImageView
 import android.widget.TextView
 import android.widget.Toast
@@ -23,10 +26,10 @@ import com.kalidratorma.yssapp.adapter.TaskAdapter
 import com.kalidratorma.yssapp.adapter.VideoLinkAdapter
 import com.kalidratorma.yssapp.model.Coach
 import com.kalidratorma.yssapp.model.Contract
+import com.kalidratorma.yssapp.model.Link
 import com.kalidratorma.yssapp.model.Parent
 import com.kalidratorma.yssapp.model.Player
 import com.kalidratorma.yssapp.model.Task
-import com.kalidratorma.yssapp.model.VideoLink
 import com.kalidratorma.yssapp.model.security.auth.AuthenticationRequest
 import com.kalidratorma.yssapp.model.security.auth.AuthenticationResponse
 import com.kalidratorma.yssapp.model.security.user.Role
@@ -35,10 +38,16 @@ import com.kalidratorma.yssapp.service.ApiService
 import com.kalidratorma.yssapp.service.AuthService
 import com.kalidratorma.yssapp.service.RetrofitHelper
 import kotlinx.coroutines.launch
+import okhttp3.MediaType
+import okhttp3.MultipartBody
+import okhttp3.RequestBody
 import java.text.SimpleDateFormat
+
 
 @Suppress("DEPRECATION")
 class MainActivity : AppCompatActivity() {
+
+    private val PICK_IMAGE = 1
 
     private lateinit var apiService: ApiService
     private lateinit var authService: AuthService
@@ -56,11 +65,12 @@ class MainActivity : AppCompatActivity() {
     private lateinit var videoLinkAdapter: VideoLinkAdapter
 
     private lateinit var globalParent: Parent
+    private var globalFileMap: List<Link>? = null
     private lateinit var globalPlayerList: List<Player>
     private lateinit var globalPlayer: Player
     private lateinit var globalTaskList: List<Task>
     private lateinit var globalTask: Task
-    private lateinit var globalVideoLinkList: List<VideoLink>
+    private lateinit var globalVideoLinkList: List<Link>
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -83,11 +93,67 @@ class MainActivity : AppCompatActivity() {
         setContentView(R.layout.login)
 
         findViewById<Button>(R.id.loginButton).setOnClickListener {
-            var username: String = findViewById<EditText>(R.id.userNameEditText).text.toString();
-            var password: String = findViewById<EditText>(R.id.passwordEditText).text.toString();
-            var request = AuthenticationRequest(username, password)
-            login(request);
+            val username: String = findViewById<EditText>(R.id.userNameEditText).text.toString()
+            val password: String = findViewById<EditText>(R.id.passwordEditText).text.toString()
+            val request = AuthenticationRequest(username, password)
+            login(request)
 
+        }
+    }
+
+    @Deprecated("Deprecated in Java")
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        if (requestCode == PICK_IMAGE) {
+            globalFileMap = null
+            data?.data?.let { uri ->
+                uploadFile(uri)
+            }
+            data?.clipData?.run {
+                val array: ArrayList<Uri> = ArrayList()
+                for (i in 0 until itemCount) {
+                    val uri = getItemAt(i).uri as Uri
+                    array.add(uri)
+                }
+                uploadFile(*array.toTypedArray())
+            }
+        } else super.onActivityResult(requestCode, resultCode, data)
+    }
+
+    private fun uploadFile(vararg uris: Uri) {
+        lifecycleScope.launch {
+            val filePart: ArrayList<MultipartBody.Part> = ArrayList()
+            for (uri in uris) {
+                val stream = contentResolver.openInputStream(uri) ?: return@launch
+                val mediaType = contentResolver.getType(uri)?.let { MediaType.parse(it) }
+                val request = RequestBody.create(
+                    contentResolver.getType(uri)?.let { MediaType.parse(it) },
+                    stream.readBytes()
+                )
+                filePart.add(
+                    MultipartBody.Part.createFormData(
+                        "file",
+                        "${mediaType?.type()}.${mediaType?.subtype()}",
+                        request
+                    )
+                )
+            }
+            try {
+                showLoading("Выгрузка файлов на сервер ...")
+                val uploadFileResult = apiService.uploadFile(*filePart.toTypedArray())
+                if (uploadFileResult.isSuccessful) {
+                    Log.e("uploadFile", "uploadFile success: ${uploadFileResult.body()}")
+                    globalFileMap = uploadFileResult.body() as List<Link>
+                } else {
+                    Log.e("uploadFile", "uploadFile failed: ${uploadFileResult.message()}")
+                }
+
+            } catch (e: Exception) {
+                Log.d("MyActivity", "Something went wrong: ${e.message}")
+                progressDialog?.dismiss()
+                return@launch
+            }
+            Log.d("MyActivity", "on finish upload file")
+            progressDialog?.dismiss()
         }
     }
 
@@ -121,9 +187,12 @@ class MainActivity : AppCompatActivity() {
                                     Log.e("getUser", "getUser failed: ${parentResult.message()}")
                                 }
                             }
+
                             Role.COACH -> openCoachContext(user)
                             Role.ADMIN -> openAdminContext(user)
-                            else -> {Log.e("login", "Что то пошло не так!")}
+                            else -> {
+                                Log.e("login", "Что то пошло не так!")
+                            }
                         }
                     } else {
                         Log.e("login", "Что то пошло не так!")
@@ -226,7 +295,7 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun fillAndOpenVideoLinksRecyclerView(videoLinkList: List<VideoLink>) {
+    private fun fillAndOpenVideoLinksRecyclerView(videoLinkList: List<Link>) {
         globalVideoLinkList = videoLinkList
         setContentView(R.layout.video_link_list)
         recyclerView = findViewById(R.id.videoLinksRecyclerView)
@@ -250,7 +319,8 @@ class MainActivity : AppCompatActivity() {
         findViewById<TextView>(R.id.taskNameTextView).text = task.name
         findViewById<TextView>(R.id.taskDescTextMultiLine).text = task.description
 
-        findViewById<TextView>(R.id.taskDescTextMultiLine).movementMethod = ScrollingMovementMethod()
+        findViewById<TextView>(R.id.taskDescTextMultiLine).movementMethod =
+            ScrollingMovementMethod()
 
         findViewById<Button>(R.id.backButton).setOnClickListener {
             fillAndOpenTaskRecyclerView(globalTaskList)
@@ -272,6 +342,16 @@ class MainActivity : AppCompatActivity() {
         findViewById<Button>(R.id.backToTaskButton).setOnClickListener {
             showTaskLayout(task)
         }
+
+        findViewById<ImageButton>(R.id.reportPhotoButton).setOnClickListener {
+            val intent = Intent()
+            intent.type = "image/*"
+            intent.putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true)
+            intent.action = Intent.ACTION_GET_CONTENT
+            startActivityForResult(Intent.createChooser(intent, "Select Picture"), PICK_IMAGE)
+
+        }
+
     }
 
 
@@ -365,8 +445,7 @@ class MainActivity : AppCompatActivity() {
         AsyncTask<String, Void, Bitmap?>() {
         init {
             Toast.makeText(
-                applicationContext, "Загрузка изображения ...",
-                Toast.LENGTH_SHORT
+                applicationContext, "Загрузка изображения ...", Toast.LENGTH_SHORT
             ).show()
         }
 

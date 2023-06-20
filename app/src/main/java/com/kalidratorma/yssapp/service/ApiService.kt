@@ -1,12 +1,17 @@
 package com.kalidratorma.yssapp.service
 
 import com.kalidratorma.yssapp.model.Coach
+import com.kalidratorma.yssapp.model.Link
 import com.kalidratorma.yssapp.model.Parent
 import com.kalidratorma.yssapp.model.Player
 import com.kalidratorma.yssapp.model.Task
 import com.kalidratorma.yssapp.model.security.user.User
+import okhttp3.MultipartBody
 import retrofit2.Response
 import retrofit2.http.GET
+import retrofit2.http.Multipart
+import retrofit2.http.POST
+import retrofit2.http.Part
 import retrofit2.http.Path
 
 interface ApiService {
@@ -38,4 +43,7 @@ interface ApiService {
     @GET("/api/task/byPlayer/{playerId}")
     suspend fun getTasksByPlayerId(@Path("playerId") playerId:Int): Response<List<Task>>
 
+    @Multipart
+    @POST("/api/file")
+    suspend fun uploadFile(@Part vararg file: MultipartBody.Part): Response<List<Link>>
 }

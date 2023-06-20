@@ -10,8 +10,8 @@ data class Task (
     @SerializedName("description") var description: String,
     @SerializedName("minutes"    ) var minutes    : Int?                  = null,
     @SerializedName("qty"        ) var qty        : Int?                  = null,
-    @SerializedName("videoLinks" ) var videoLinks : ArrayList<VideoLink> = arrayListOf(),
-    @SerializedName("photoLinks" ) var photoLinks : ArrayList<PhotoLink> = arrayListOf(),
+    @SerializedName("videoLinks" ) var videoLinks : ArrayList<Link> = arrayListOf(),
+    @SerializedName("photoLinks" ) var photoLinks : ArrayList<Link> = arrayListOf(),
     @SerializedName("schedule"   ) var schedule   : ArrayList<Schedule>   = arrayListOf(),
     @SerializedName("players"    ) var players    : ArrayList<Player>    = arrayListOf(),
     @SerializedName("coach"      ) var coach      : Coach?                = Coach()

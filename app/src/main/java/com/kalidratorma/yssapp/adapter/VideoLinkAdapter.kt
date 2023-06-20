@@ -9,11 +9,10 @@ import android.widget.VideoView
 import androidx.recyclerview.widget.RecyclerView
 import com.kalidratorma.yssapp.R
 import com.kalidratorma.yssapp.adapter.VideoLinkAdapter.VideoLinkViewHolder
-import com.kalidratorma.yssapp.model.VideoLink
+import com.kalidratorma.yssapp.model.Link
 
 
-class VideoLinkAdapter(private val videoLinkList: List<VideoLink>) : RecyclerView.Adapter<VideoLinkViewHolder>() {
-    var onItemClick: ((VideoLink) -> Unit)? = null
+class VideoLinkAdapter(private val videoLinkList: List<Link>) : RecyclerView.Adapter<VideoLinkViewHolder>() {
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): VideoLinkViewHolder {
         val inflater = LayoutInflater.from(parent.context)
@@ -37,22 +36,6 @@ class VideoLinkAdapter(private val videoLinkList: List<VideoLink>) : RecyclerVie
         init {
             videoLinkItemWebView = itemView.findViewById(R.id.youTubePlayerView)
             videoLinkItemWebView.setMediaController(MediaController(itemView.context))
-
-          //  videoLinkItemWebView.start()
-
-//            itemView.setOnClickListener {
-//                onItemClick?.invoke(videoLinkList[adapterPosition])
-//            }
-
-//            videoLinkItemWebView.(object : AbstractYouTubePlayerListener() {
-//                override fun onReady(youTubePlayer: YouTubePlayer) {
-//                    val videoId = videoLinkList[adapterPosition].url!!
-//                    youTubePlayer.loadVideo(videoId, 0f)
-//                    if(adapterPosition!= 0) {
-//                        youTubePlayer.pause()
-//                    }
-//                }
-//            })
         }
     }
 }
