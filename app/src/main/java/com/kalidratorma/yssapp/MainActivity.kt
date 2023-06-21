@@ -1,11 +1,11 @@
+@file:Suppress("DEPRECATION")
+
 package com.kalidratorma.yssapp
 
+import android.annotation.SuppressLint
 import android.app.ProgressDialog
 import android.content.Intent
-import android.graphics.Bitmap
-import android.graphics.BitmapFactory
 import android.net.Uri
-import android.os.AsyncTask
 import android.os.Bundle
 import android.text.method.ScrollingMovementMethod
 import android.util.Log
@@ -14,7 +14,7 @@ import android.view.WindowManager
 import android.widget.Button
 import android.widget.EditText
 import android.widget.ImageButton
-import android.widget.ImageView
+import android.widget.MultiAutoCompleteTextView
 import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
@@ -24,14 +24,13 @@ import androidx.recyclerview.widget.RecyclerView
 import com.kalidratorma.yssapp.adapter.PlayerAdapter
 import com.kalidratorma.yssapp.adapter.TaskAdapter
 import com.kalidratorma.yssapp.adapter.VideoLinkAdapter
-import com.kalidratorma.yssapp.model.Coach
-import com.kalidratorma.yssapp.model.Contract
-import com.kalidratorma.yssapp.model.Link
+import com.kalidratorma.yssapp.model.ContentFile
 import com.kalidratorma.yssapp.model.Parent
 import com.kalidratorma.yssapp.model.Player
 import com.kalidratorma.yssapp.model.Task
+import com.kalidratorma.yssapp.model.TaskReport
+import com.kalidratorma.yssapp.model.entity.request.TaskReportRequest
 import com.kalidratorma.yssapp.model.security.auth.AuthenticationRequest
-import com.kalidratorma.yssapp.model.security.auth.AuthenticationResponse
 import com.kalidratorma.yssapp.model.security.user.Role
 import com.kalidratorma.yssapp.model.security.user.User
 import com.kalidratorma.yssapp.service.ApiService
@@ -42,12 +41,15 @@ import okhttp3.MediaType
 import okhttp3.MultipartBody
 import okhttp3.RequestBody
 import java.text.SimpleDateFormat
+import java.time.Instant
 
 
 @Suppress("DEPRECATION")
 class MainActivity : AppCompatActivity() {
 
-    private val PICK_IMAGE = 1
+    companion object {
+        const val PICK_IMAGE_FOR_REPORT_TASK = 1
+    }
 
     private lateinit var apiService: ApiService
     private lateinit var authService: AuthService
@@ -55,7 +57,8 @@ class MainActivity : AppCompatActivity() {
     private var progressDialog: ProgressDialog? = null
 
     private lateinit var parent: Parent
-    private lateinit var coach: Coach
+
+    //  private lateinit var coach: Coach
     private lateinit var user: User
 
     private lateinit var recyclerView: RecyclerView
@@ -65,12 +68,12 @@ class MainActivity : AppCompatActivity() {
     private lateinit var videoLinkAdapter: VideoLinkAdapter
 
     private lateinit var globalParent: Parent
-    private var globalFileMap: List<Link>? = null
+    private var globalFileMap: HashMap<Int, List<ContentFile>> = HashMap()
     private lateinit var globalPlayerList: List<Player>
     private lateinit var globalPlayer: Player
     private lateinit var globalTaskList: List<Task>
     private lateinit var globalTask: Task
-    private lateinit var globalVideoLinkList: List<Link>
+    private lateinit var globalVideoContentFileList: List<ContentFile>
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -83,7 +86,6 @@ class MainActivity : AppCompatActivity() {
         // add FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS flag to the window
         window.addFlags(WindowManager.LayoutParams.FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS)
 
-        // finally change the color
         window.statusBarColor = resources.getColor(R.color.red)
         window.navigationBarColor = resources.getColor(R.color.red)
 
@@ -103,10 +105,9 @@ class MainActivity : AppCompatActivity() {
 
     @Deprecated("Deprecated in Java")
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
-        if (requestCode == PICK_IMAGE) {
-            globalFileMap = null
+        if (requestCode == Companion.PICK_IMAGE_FOR_REPORT_TASK) {
             data?.data?.let { uri ->
-                uploadFile(uri)
+                uploadFile(Companion.PICK_IMAGE_FOR_REPORT_TASK, uri)
             }
             data?.clipData?.run {
                 val array: ArrayList<Uri> = ArrayList()
@@ -114,12 +115,13 @@ class MainActivity : AppCompatActivity() {
                     val uri = getItemAt(i).uri as Uri
                     array.add(uri)
                 }
-                uploadFile(*array.toTypedArray())
+                uploadFile(Companion.PICK_IMAGE_FOR_REPORT_TASK, *array.toTypedArray())
             }
         } else super.onActivityResult(requestCode, resultCode, data)
     }
 
-    private fun uploadFile(vararg uris: Uri) {
+    @SuppressLint("Recycle")
+    private fun uploadFile(requestCode: Int, vararg uris: Uri) {
         lifecycleScope.launch {
             val filePart: ArrayList<MultipartBody.Part> = ArrayList()
             for (uri in uris) {
@@ -142,7 +144,12 @@ class MainActivity : AppCompatActivity() {
                 val uploadFileResult = apiService.uploadFile(*filePart.toTypedArray())
                 if (uploadFileResult.isSuccessful) {
                     Log.e("uploadFile", "uploadFile success: ${uploadFileResult.body()}")
-                    globalFileMap = uploadFileResult.body() as List<Link>
+                    val resultContentFileList = uploadFileResult.body() as List<ContentFile>
+                    if (globalFileMap[requestCode].isNullOrEmpty()) {
+                        globalFileMap[requestCode] = resultContentFileList
+                    } else {
+                        globalFileMap[requestCode]!!.plus(resultContentFileList)
+                    }
                 } else {
                     Log.e("uploadFile", "uploadFile failed: ${uploadFileResult.message()}")
                 }
@@ -160,25 +167,24 @@ class MainActivity : AppCompatActivity() {
     private fun login(request: AuthenticationRequest) {
 
         lifecycleScope.launch {
-            var localUser: User? = null
             showLoading("Аутентификация ...")
             val loginResult = authService.enter(request)
             if (loginResult.isSuccessful) {
                 Log.e("login", "login success: ${loginResult.body()}")
-                var loginResponse: AuthenticationResponse? = loginResult.body();
+                // var loginResponse: AuthenticationResponse?= loginResult.body();
                 // TODO Add
                 //  String authToken = "Bearer " + loginResponse.token;
                 //  Request request = original.newBuilder()
                 //                    .header("Authorization", authToken)
                 //                    .method(original.method(), original.body()).build();
-                var userResult = apiService.getUserByName(request.username)
+                val userResult = apiService.getUserByName(request.username)
                 if (userResult.isSuccessful) {
                     Log.e("getUser", "getUser success: ${userResult.body()}")
                     if (userResult.body() != null) {
                         user = userResult.body()!!
                         when (user.role) {
                             Role.CLIENT -> {
-                                var parentResult = apiService.getParentByUserId(user.id)
+                                val parentResult = apiService.getParentByUserId(user.id)
                                 if (userResult.isSuccessful) {
                                     Log.e("getUser", "getUser success: ${parentResult.body()}")
                                     parent = parentResult.body()!!
@@ -221,13 +227,13 @@ class MainActivity : AppCompatActivity() {
             openPlayers(parent)
         }
 
-        findViewById<Button>(R.id.contractButton).setOnClickListener {
-            openContract(parent.contracts)
-        }
+//        findViewById<Button>(R.id.contractButton).setOnClickListener {
+//            openContract(parent.contracts)
+//        }
 
-        findViewById<Button>(R.id.userSettingsButton).setOnClickListener {
-            openUserSettings(parent.user)
-        }
+//        findViewById<Button>(R.id.userSettingsButton).setOnClickListener {
+//            openUserSettings(parent.user)
+//        }
 
         findViewById<TextView>(R.id.surnameTextView).text = parent.surname
         findViewById<TextView>(R.id.nameTextView).text = parent.name
@@ -235,13 +241,13 @@ class MainActivity : AppCompatActivity() {
 
     }
 
-    private fun openContract(contracts: List<Contract>?) {
-        TODO("Not yet implemented")
-    }
+//    private fun openContract(contracts: List<Contract>?) {
+//        TODO("Not yet implemented")
+//    }
 
-    private fun openUserSettings(user: User?) {
-        TODO("Not yet implemented")
-    }
+//    private fun openUserSettings(user: User?) {
+//        TODO("Not yet implemented")
+//    }
 
     private fun openPlayers(parent: Parent) {
         lifecycleScope.launch {
@@ -249,8 +255,8 @@ class MainActivity : AppCompatActivity() {
             val result = apiService.getPlayersByParentId(parent.id)
             if (result.isSuccessful) {
                 Log.e("openPlayers", "openPlayers success: ${result.body()}")
-                var playerList: List<Player> = result.body()!!;
-                fillAndOpenPlayerRecyclerView(playerList);
+                val playerList: List<Player> = result.body()!!
+                fillAndOpenPlayerRecyclerView(playerList)
             } else {
                 Log.e("openPlayers", "openPlayers failed: ${result.message()}")
             }
@@ -295,11 +301,11 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun fillAndOpenVideoLinksRecyclerView(videoLinkList: List<Link>) {
-        globalVideoLinkList = videoLinkList
+    private fun fillAndOpenVideoLinksRecyclerView(videoContentFileList: List<ContentFile>) {
+        globalVideoContentFileList = videoContentFileList
         setContentView(R.layout.video_link_list)
         recyclerView = findViewById(R.id.videoLinksRecyclerView)
-        videoLinkAdapter = VideoLinkAdapter(videoLinkList)
+        videoLinkAdapter = VideoLinkAdapter(videoContentFileList)
 //        videoLinkAdapter.onItemClick = { videoLink ->
 //            showVideoLinkLayout(videoLink)
 //        }
@@ -316,10 +322,12 @@ class MainActivity : AppCompatActivity() {
         globalTask = task
         setContentView(R.layout.task)
 
-        findViewById<TextView>(R.id.taskNameTextView).text = task.name
-        findViewById<TextView>(R.id.taskDescTextMultiLine).text = task.description
+        val taskDescTextMultiLine = findViewById<TextView>(R.id.taskDescTextMultiLine)
 
-        findViewById<TextView>(R.id.taskDescTextMultiLine).movementMethod =
+        findViewById<TextView>(R.id.taskNameTextView).text = task.name
+        taskDescTextMultiLine.text = task.description
+
+        taskDescTextMultiLine.movementMethod =
             ScrollingMovementMethod()
 
         findViewById<Button>(R.id.backButton).setOnClickListener {
@@ -331,13 +339,15 @@ class MainActivity : AppCompatActivity() {
         }
 
         findViewById<Button>(R.id.reportButton).setOnClickListener {
-            openReportTask(task);
+            openReportTask(task)
         }
 
     }
 
     private fun openReportTask(task: Task) {
         setContentView(R.layout.report_task)
+        //val simpleDateFormat = SimpleDateFormat("dd.MM.yyyy г.")
+        // val taskReport: Task
 
         findViewById<Button>(R.id.backToTaskButton).setOnClickListener {
             showTaskLayout(task)
@@ -348,10 +358,44 @@ class MainActivity : AppCompatActivity() {
             intent.type = "image/*"
             intent.putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true)
             intent.action = Intent.ACTION_GET_CONTENT
-            startActivityForResult(Intent.createChooser(intent, "Select Picture"), PICK_IMAGE)
+            startActivityForResult(
+                Intent.createChooser(intent, "Select Picture"),
+                Companion.PICK_IMAGE_FOR_REPORT_TASK
+            )
 
         }
 
+        findViewById<Button>(R.id.reportSendButton).setOnClickListener {
+            val taskReportRequest =
+                TaskReportRequest(
+                    Instant.now().toEpochMilli(),
+                    task.id,
+                    globalPlayer.id,
+                    null, //TODO добавить выбор из календаря, за какой день отчитываемся
+                    findViewById<MultiAutoCompleteTextView>(R.id.reportTextMultiAutoCompleteTextView).text.toString(),
+                    globalFileMap[Companion.PICK_IMAGE_FOR_REPORT_TASK],
+                    null
+                )
+            sendTaskReport(taskReportRequest)
+        }
+
+    }
+
+    private fun sendTaskReport(taskReportRequest: TaskReportRequest) {
+        lifecycleScope.launch {
+            showLoading("Выгрузка отчета на сервер ...")
+            val result = apiService.sendTaskReport(taskReportRequest)
+            if (result.isSuccessful) {
+                Toast.makeText(applicationContext, "Отчет успешно отправлен", Toast.LENGTH_SHORT).show()
+                Log.e("sendTaskReport", "sendTaskReport success")
+                globalFileMap.remove(Companion.PICK_IMAGE_FOR_REPORT_TASK)
+                showPlayerLayout(globalPlayer)
+            } else {
+                Toast.makeText(applicationContext, "Ошибка отправки отчета", Toast.LENGTH_SHORT).show()
+                Log.e("sendTaskReport", "sendTaskReport failed")
+            }
+            progressDialog?.dismiss()
+        }
     }
 
 
@@ -363,23 +407,24 @@ class MainActivity : AppCompatActivity() {
         setContentView(R.layout.admin)
     }
 
-    private fun getPlayerById(id: Int): Player? {
+//    private fun getPlayerById(id: Int): Player? {
+//
+//        lifecycleScope.launch {
+//            showLoading("Загрузка данных с сервера ...")
+//            val result = apiService.getPlayerById(id)
+//            if (result.isSuccessful) {
+//                Log.e("getPlayerById", "getPlayerById success: ${result.body()}")
+//                globalPlayer = result.body()!!;
+//                showPlayerLayout(globalPlayer)
+//            } else {
+//                Log.e("getPlayerById", "getPlayerById failed: ${result.message()}")
+//            }
+//            progressDialog?.dismiss()
+//        }
+//        return globalPlayer
+//    }
 
-        lifecycleScope.launch {
-            showLoading("Загрузка данных с сервера ...")
-            val result = apiService.getPlayerById(id)
-            if (result.isSuccessful) {
-                Log.e("getPlayerById", "getPlayerById success: ${result.body()}")
-                globalPlayer = result.body()!!;
-                showPlayerLayout(globalPlayer)
-            } else {
-                Log.e("getPlayerById", "getPlayerById failed: ${result.message()}")
-            }
-            progressDialog?.dismiss()
-        }
-        return globalPlayer
-    }
-
+    @SuppressLint("SimpleDateFormat")
     private fun showPlayerLayout(player: Player) {
         globalPlayer = player
 
@@ -421,7 +466,9 @@ class MainActivity : AppCompatActivity() {
         findViewById<TextView>(R.id.nameTextView).text = player.name
         findViewById<TextView>(R.id.birthDateEditTextDate).text =
             simpleDateFormat.format(player.birthDate)
-        DownloadImageFromInternet(findViewById<ImageView>(R.id.photoImageView)).execute(player.photo)
+        DownloadImageFromInternet(applicationContext, findViewById(R.id.photoImageView)).execute(
+            player.photo
+        )
     }
 
     private fun openCoachGrade() {
@@ -438,32 +485,5 @@ class MainActivity : AppCompatActivity() {
 
     private fun showLoading(msg: String) {
         progressDialog = ProgressDialog.show(this, null, msg, true)
-    }
-
-
-    private inner class DownloadImageFromInternet(var imageView: ImageView) :
-        AsyncTask<String, Void, Bitmap?>() {
-        init {
-            Toast.makeText(
-                applicationContext, "Загрузка изображения ...", Toast.LENGTH_SHORT
-            ).show()
-        }
-
-        override fun doInBackground(vararg urls: String): Bitmap? {
-            val imageURL = urls[0]
-            var image: Bitmap? = null
-            try {
-                val `in` = java.net.URL(imageURL).openStream()
-                image = BitmapFactory.decodeStream(`in`)
-            } catch (e: Exception) {
-                Log.e("Error Message", e.message.toString())
-                e.printStackTrace()
-            }
-            return image
-        }
-
-        override fun onPostExecute(result: Bitmap?) {
-            imageView.setImageBitmap(result)
-        }
     }
 }

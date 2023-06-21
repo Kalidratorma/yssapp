@@ -9,10 +9,11 @@ import android.widget.VideoView
 import androidx.recyclerview.widget.RecyclerView
 import com.kalidratorma.yssapp.R
 import com.kalidratorma.yssapp.adapter.VideoLinkAdapter.VideoLinkViewHolder
-import com.kalidratorma.yssapp.model.Link
+import com.kalidratorma.yssapp.model.ContentFile
+import com.kalidratorma.yssapp.service.RetrofitHelper
 
 
-class VideoLinkAdapter(private val videoLinkList: List<Link>) : RecyclerView.Adapter<VideoLinkViewHolder>() {
+class VideoLinkAdapter(private val videoContentFileList: List<ContentFile>) : RecyclerView.Adapter<VideoLinkViewHolder>() {
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): VideoLinkViewHolder {
         val inflater = LayoutInflater.from(parent.context)
@@ -21,13 +22,15 @@ class VideoLinkAdapter(private val videoLinkList: List<Link>) : RecyclerView.Ada
     }
 
     override fun onBindViewHolder(holder: VideoLinkViewHolder, position: Int) {
-        holder.videoLinkItemWebView.setVideoURI(Uri.parse(videoLinkList[position].url!!))
+        holder.videoLinkItemWebView.setVideoURI(
+            Uri.parse(RetrofitHelper.getInstance().baseUrl().toString() +
+                    "file/" + videoContentFileList[position].name!!))
         holder.videoLinkItemWebView.start()
         holder.videoLinkItemWebView.pause()
     }
 
     override fun getItemCount(): Int {
-        return videoLinkList.size
+        return videoContentFileList.size
     }
 
     inner class VideoLinkViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
